@@ -26,9 +26,5 @@ exemple *http://example.com/Repair_settings.php* .
 **N'oubliez jamais de supprimer ce fichier lorsque son utilisation n'est plus nécessaire !**
 
 
-## Pull requests et Issues
-Effectuez vos modifications sur la branche "dev", puis effectuez une pull request afin que votre commit soit mergé.
-
-* **Les commits et issues doivent être faits en priorité en français !**
 
 ***Alex***
