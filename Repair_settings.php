@@ -5,14 +5,13 @@
  *
  * @package SMF
  * @author Simple Machines
- * @copyright 2017 Simple Machines
- * @license http://www.simplemachines.org/about/smf/license.php BSD
+ * @copyright 2020 Simple Machines
+ * @license https://www.simplemachines.org/about/smf/license.php BSD
  *
- * @version 2.1
- * @updated 2017-02-08
+ * @version 2.1.2
+ * @updated 2020-08-26
  *
  * French translation By Alex (07-2017)
- *
  */
 
 // We need the Settings.php info for database stuff.
@@ -22,8 +21,8 @@ if (file_exists(dirname(__FILE__) . '/Settings.php'))
 // Initialize everything and load the language files.
 initialize_inputs();
 
-$txt['smf_repair_settings'] = 'SMF %1$s - Outils de r&eacute;paration des param&eacute;tres<br />Version fran&ccedil;aise';
-$txt['smf11_repair_settings'] = 'SMF 1.x - Outils de r&eacute;paration des param&eacute;tres<br />Version fran&ccedil;aise';
+$txt['smf_repair_settings'] = 'SMF %1$s - Outils de r&eacute;paration des param&eacute;tres - Version fran&ccedil;aise';
+$txt['smf11_repair_settings'] = 'SMF 1.x - Outils de r&eacute;paration des param&eacute;tres - Version fran&ccedil;aise';
 $txt['no_value'] = '<em style="font-weight: normal; color: red;">Valeur introuvable !</em>';
 $txt['default_value'] = 'Valeur recommand&eacute;e.';
 $txt['other_possible_value'] = 'Autre valeur possible.';
@@ -43,7 +42,7 @@ $txt['hooks_removed'] = 'Tous les hooks existants ont &eacute;t&eacute; retir&ea
 $txt['hooks_disabled'] = 'Tous les hooks existants ont &eacute;t&eacute; d&eacute;sactiv&eacute;s. Notez que les MODs existants qui d&eacute;pendent des hooks ne fonctionneront plus. Vous pouvez les r&eacute;activer depuis la maintenance du forum.<br /><b>Assurez-vous de supprimer ce fichier !</b>';
 
 $txt['critical_settings'] = 'Param&eacute;tres critiques';
-$txt['critical_settings_info'] = 'Ce sont les param&egrave;tres les plus susceptibles de paralyser votre forum, mais essayez les actions ci-dessous (en particulier les chemins d\'acc&egrave;s et les URLs). Si cela ne vous aide pas, vous pouvez cliquer sur la valeur recommand&eacute;e pour l\'utiliser.';
+$txt['critical_settings_info'] = 'Ce sont les param&egrave;tres les plus susceptibles de paralyser votre forum, mais essayez les actions ci-dessous (en particulier les chemins d\'acc&egrave;s et les URLs) si cela ne vous aide pas. Vous pouvez cliquer sur la valeur recommand&eacute;e pour l\'utiliser.';
 $txt['maintenance'] = 'Mode Maintenance ';
 $txt['maintenance0'] = 'Off (recommand&eacute;)';
 $txt['maintenance1'] = 'Activ&eacute;';
@@ -123,9 +122,12 @@ if (isset($_POST['submit']))
 if (isset($_POST['remove_hooks']))
 	remove_hooks();
 
-// try to find the smflogo: could be a .gif or a .png
-$smflogo = "Themes/default/images/smflogo.png";
-if (!file_exists(dirname(__FILE__) . "/" . $smflogo))
+// try to find the smflogo: could be a .gif or a .png or an .svg
+if (file_exists(dirname(__FILE__) . "/Themes/default/images/smflogo.svg"))
+	$smflogo = "Themes/default/images/smflogo.svg";
+elseif (file_exists(dirname(__FILE__) . "/Themes/default/images/smflogo.png"))
+	$smflogo = "Themes/default/images/smflogo.png";
+else 
 	$smflogo = "Themes/default/images/smflogo.gif";
 
 // Note that we're using the default URLs because we aren't even going to try to use Settings.php's settings.
@@ -317,11 +319,20 @@ function initialize_inputs()
 	{
 		if (!defined('SMF'))
 			define('SMF', 1);
+		
+		if (!defined('POSTGRE_TITLE'))
+			define('POSTGRE_TITLE', 'PostgreSQL');
+
+		if (!defined('MYSQL_TITLE'))
+			define('MYSQL_TITLE', 'MySQL');
+
+		if (!defined('TIME_START'))
+			define('TIME_START', microtime(true));
 
 		if (empty($smcFunc))
 			$smcFunc = array();
 
-		// Default the database type to MySQL. In 2.1 Beta 3, mysqli was removed, this will put it back to mysql.
+		// Default the database type to MySQLi. In 2.1 Beta 3, mysql was removed, this will put it back to mysqli.
 		$db_type_options = array('default' => 'mysql', 'options' => array('mysql' => 'MySQL'));
 		if (empty($db_type) || !file_exists($sourcedir . '/Subs-Db-' . $db_type . '.php'))
 			$db_type = 'mysql';
@@ -1046,33 +1057,33 @@ function set_settings()
 			}
 	}
 
-	// In SMF 2.1, its always an array.
-	if ($context['smfVersion'] == '2.1')
+	// Build the update string for attachment dirs
+	if (!empty($attach_dirs))
 	{
-		$setString[] = array('attachmentUploadDir', json_encode($attach_dirs));
-	}
-	// Only one dir...or maybe nothing at all
-	elseif (count($attach_dirs) > 1)
-	{
-		$setString[] = array('attachmentUploadDir', @serialize($attach_dirs));
-		// If we want to (re)set currentAttachmentUploadDir here is a good place
-// 		foreach ($attach_dirs as $id => $attach_dir)
-// 			if (is_dir($attach_dir) && is_writable($attach_dir))
-// 				$setString[] = array('currentAttachmentUploadDir', $id + 1);
-	}
-	elseif (!$context['is_legacy'] && isset($attach_dirs[1]))
-	{
-		$setString[] = array('attachmentUploadDir', $attach_dirs[1]);
-		$setString[] = array('currentAttachmentUploadDir', 0);
-	}
-	elseif ($context['is_legacy'] && isset($attach_dirs[0]))
-	{
-		$setString[] = array('attachmentUploadDir', $attach_dirs[0]);
-	}
-	else
-	{
-		$setString[] = array('attachmentUploadDir', '');
-		$setString[] = array('currentAttachmentUploadDir', 0);
+		// In SMF 2.1, its always an array.
+		if ($context['smfVersion'] == '2.1')
+		{
+			$setString[] = array('attachmentUploadDir', json_encode($attach_dirs));
+		}
+		// Only one dir...or maybe nothing at all
+		elseif (count($attach_dirs) > 1)
+		{
+			$setString[] = array('attachmentUploadDir', @serialize($attach_dirs));
+		}
+		elseif (!$context['is_legacy'] && isset($attach_dirs[1]))
+		{
+			$setString[] = array('attachmentUploadDir', $attach_dirs[1]);
+			$setString[] = array('currentAttachmentUploadDir', 0);
+		}
+		elseif ($context['is_legacy'] && isset($attach_dirs[0]))
+		{
+			$setString[] = array('attachmentUploadDir', $attach_dirs[0]);
+		}
+		else
+		{
+			$setString[] = array('attachmentUploadDir', '');
+			$setString[] = array('currentAttachmentUploadDir', 0);
+		}
 	}
 
 	if (!empty($setString))
@@ -1142,12 +1153,21 @@ function remove_hooks()
 // Compat mode!
 function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_prefix, $db_options = array())
 {
-	global $mysql_set_mod, $sourcedir, $db_connection, $db_prefix, $smcFunc;
+	global $sourcedir, $db_connection, $db_prefix, $smcFunc, $mysqli_found;
 
-	if (!empty($db_options['persist']))
-		$db_connection = @mysql_pconnect($db_server, $db_user, $db_passwd);
+	// Add mysqli support in case someone is trying to resurrect an old forum on a new server
+	$mysqli_found = function_exists('mysqli_connect');
+
+	if ($mysqli_found)
+		if (!empty($db_options['persist']))
+			$db_connection = @mysqli_connect('p:' . $db_server, $db_user, $db_passwd);
+		else
+			$db_connection = @mysqli_connect($db_server, $db_user, $db_passwd);
 	else
-		$db_connection = @mysql_connect($db_server, $db_user, $db_passwd);
+		if (!empty($db_options['persist']))
+			$db_connection = @mysql_pconnect($db_server, $db_user, $db_passwd);
+		else
+			$db_connection = @mysql_connect($db_server, $db_user, $db_passwd);
 
 	// Something's wrong, show an error if its fatal (which we assume it is)
 	if (!$db_connection)
@@ -1165,25 +1185,27 @@ function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_pre
 		}
 	}
 
-	// Select the database, unless told not to
-	if (empty($db_options['dont_select_db']) && !@mysql_select_db($db_name, $connection) && empty($db_options['non_fatal']))
+	// If DB not found, then dbname is wrong, return null
+	if ($mysqli_found)
 	{
-		if (file_exists($sourcedir . '/Errors.php'))
-		{
-			require_once($sourcedir . '/Errors.php');
-			display_db_error();
-		}
-		exit('Sorry, SMF was unable to connect to database.');
+		if (mysqli_select_db($db_connection, $db_name) === false)
+			return null;
+  
+ 
+   
+  
 	}
 	else
-		$db_prefix = is_numeric(substr($db_prefix, 0, 1)) ? $db_name . '.' . $db_prefix : '`' . $db_name . '`.' . $db_prefix;
-
+	{
+		if (mysql_select_db($db_name, $db_connection) === false)
+			return null;
+	}
 	// Some core functions, but only once, yes?
 	if (!function_exists('smf_db_replacement__callback'))
 	{
 		function smf_db_replacement__callback($matches)
 		{
-			global $db_callback, $user_info, $db_prefix;
+			global $db_callback, $user_info, $db_prefix, $mysqli_found;
 
 			list ($values, $connection) = $db_callback;
 
@@ -1214,7 +1236,10 @@ function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_pre
 
 				case 'string':
 				case 'text':
-					return sprintf('\'%1$s\'', mysql_real_escape_string($replacement, $connection));
+					if ($mysqli_found)
+						return sprintf('\'%1$s\'', mysqli_real_escape_string($connection, $replacement));
+					else
+						return sprintf('\'%1$s\'', mysql_real_escape_string($replacement, $connection));
 				break;
 
 				case 'array_int':
@@ -1245,7 +1270,10 @@ function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_pre
 							smf_db_error_backtrace('Database error, given array of string values is empty. (' . $matches[2] . ')', '', E_USER_ERROR, __FILE__, __LINE__);
 
 						foreach ($replacement as $key => $value)
-							$replacement[$key] = sprintf('\'%1$s\'', mysql_real_escape_string($value, $connection));
+							if ($mysqli_found)
+								$replacement[$key] = sprintf('\'%1$s\'', mysqli_real_escape_string($connection, $value));
+							else
+								$replacement[$key] = sprintf('\'%1$s\'', mysql_real_escape_string($value, $connection));
 
 						return implode(', ', $replacement);
 					}
@@ -1287,7 +1315,7 @@ function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_pre
 	{
 		function smf_db_query($execute = true, $db_string, $db_values)
 		{
-			global $db_callback, $db_connection;
+			global $db_callback, $db_connection, $mysqli_found;
 
 			// Only bother if there's something to replace.
 			if (strpos($db_string, '{') !== false)
@@ -1305,7 +1333,10 @@ function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_pre
 			// We actually make the query in compat mode.
 			if ($execute === false)
 				return $db_string;
-			return mysql_query($db_string, $db_connection);
+			if ($mysqli_found)
+				return mysqli_query($db_connection, $db_string);
+			else
+				return mysql_query($db_string, $db_connection);
 		}
 	}
 
@@ -1416,16 +1447,32 @@ function smc_compat_initiate($db_server, $db_name, $db_user, $db_passwd, $db_pre
 	}
 
 	// Now, go functions, spread your love.
-	$smcFunc['db_free_result'] = 'mysql_free_result';
-	$smcFunc['db_fetch_row'] = 'mysql_fetch_row';
-	$smcFunc['db_fetch_assoc'] = 'mysql_fetch_assoc';
-	$smcFunc['db_num_rows'] = 'mysql_num_rows';
+	if ($mysqli_found)
+	{
+		$smcFunc['db_free_result'] = 'mysqli_free_result';
+		$smcFunc['db_fetch_row'] = 'mysqli_fetch_row';
+		$smcFunc['db_fetch_assoc'] = 'mysqli_fetch_assoc';
+		$smcFunc['db_num_rows'] = 'mysqli_num_rows';
+	}
+	else
+	{
+		$smcFunc['db_free_result'] = 'mysql_free_result';
+		$smcFunc['db_fetch_row'] = 'mysql_fetch_row';
+		$smcFunc['db_fetch_assoc'] = 'mysql_fetch_assoc';
+		$smcFunc['db_num_rows'] = 'mysql_num_rows';
+	}
 	$smcFunc['db_insert'] = 'smf_db_insert';
 	$smcFunc['db_query'] = 'smf_db_query';
 	$smcFunc['db_quote'] = 'smf_db_query';
 	$smcFunc['db_error_backtrace'] = 'smf_db_error_backtrace';
 	$smcFunc['db_list_tables'] = 'smf_db_list_tables';
 
+	// One last check - prefix
+	$tables = smf_db_list_tables();
+	if (!(is_array($tables) && in_array($db_prefix . 'settings' , $tables)))
+		$db_connection = null;
+
+	$db_prefix = is_numeric(substr($db_prefix, 0, 1)) ? $db_name . '.' . $db_prefix : '`' . $db_name . '`.' . $db_prefix;
 	return $db_connection;
 }
 
